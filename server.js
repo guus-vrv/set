@@ -1,7 +1,6 @@
 const express = require('express');
 const connectDB = require('./config/db');
 const cors = require('cors'); // to handle cross origin requests
-const dataRoutes = require('./routes/data'); // Import the data routes
 
 const app = express();
 
@@ -14,7 +13,9 @@ app.use(express.json({ extended: false }));
 
 // Define Routes
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/data', dataRoutes);
+app.use('/api/user', require('./routes/user'));
+app.use('/api/profiles', require('./routes/profiles')); // Add this line to use profiles routes
+
 
 // Start the server
 const PORT = process.env.PORT || 5001;

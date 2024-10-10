@@ -42,7 +42,7 @@ router.post(
       await user.save();
 
       // Create and return a JWT token
-      const payload = { user: { id: user.id } };
+      const payload = { user: { id: user._id  } };
       jwt.sign(
         payload,
         'yourSecretKey', // Replace with a secure key in production
@@ -64,7 +64,7 @@ router.post('/login', async (req, res) => {
 
   try {
     // Find user by email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }); // Populate the profile if you have set up a reference
     if (!user) {
       return res.status(400).json({ msg: 'No user with this email' });
     }
@@ -75,15 +75,16 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ msg: 'Incorrect password' });
     }
 
-    // Generate JWT tokeni
+    // Generate JWT token
     const token = jwt.sign({ id: user._id }, 'your_jwt_secret', { expiresIn: '1h' });
     
-    // Send token as response
-    res.json({ token });
+    // Send token and user ID as response
+    res.status(200).json({ token, userId: user._id });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');
   }
 });
+
 
 module.exports = router;
