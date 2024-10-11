@@ -23,7 +23,7 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, brokerEmail } = req.body;
 
     try {
       // Check if user already exists
@@ -32,8 +32,20 @@ router.post(
         return res.status(400).json({ errors: [{ msg: 'User already exists' }] });
       }
 
-      // Create a new user instance
-      user = new User({ name, email, password, role });
+      if (role === 'buyer' || role === 'seller')
+      {
+        const broker = await User.findOne({email: brokerEmail, role: 'broker'});
+        if (!broker) {
+          return res.status(400).json({ msg: 'Broker is not recognized' });
+        }
+        brokerId = broker._id; // Use this brokerId to set on the new buyer/seller
+
+        user = new User({ name, email, password, role, brokerId });
+      }
+      else
+      {
+        user = new User({ name, email, password, role });
+      }
 
       // Hash the password before saving
       const salt = await bcrypt.genSalt(10);
@@ -42,16 +54,11 @@ router.post(
       await user.save();
 
       // Create and return a JWT token
-      const payload = { user: { id: user._id  } };
-      jwt.sign(
-        payload,
-        'yourSecretKey', // Replace with a secure key in production
-        { expiresIn: 360000 },
-        (err, token) => {
-          if (err) throw err;
-          res.json({ token });
-        }
-      );
+
+      const token = jwt.sign({ id: user._id }, 'your-secret-key', { expiresIn: '1h' });
+
+      res.status(201).json({ token, id: user._id });
+
     } catch (err) {
       console.error(err.message);
       res.status(500).send('Server error');
@@ -76,10 +83,10 @@ router.post('/login', async (req, res) => {
     }
 
     // Generate JWT token
-    const token = jwt.sign({ id: user._id }, 'your_jwt_secret', { expiresIn: '1h' });
+    const token = jwt.sign({ id: user._id }, 'your-secret-key', { expiresIn: '1h' });
     
     // Send token and user ID as response
-    res.status(200).json({ token, userId: user._id });
+    res.status(201).json({ token, id: user._id});
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');

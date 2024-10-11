@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const Profile = require('../models/Profile');
-const roleCheck = require('../middlewares/roleCheck');
 const User = require('../models/User'); // Import User model
+const authMiddleware = require('../middleware/auth'); // Import your middleware
 
 // POST endpoint to save profile data
 router.post('/', async (req, res) => {
     try {
-        const { id, ...formData } = req.body; // Get username from request body
+        const id = req.userId;
+        const { ...formData } = req.body; // Get username from request body
 
         // Find the user by username (or any other field)
         const user = await User.findById(id);
@@ -43,9 +44,42 @@ router.post('/', async (req, res) => {
     }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/my-clients', authMiddleware, async (req, res) => {
+
+
+    const { industry = [], location = [] } = req.query;
+
+    const id = req.userId;
+
     try {
-        const { id } = req.params; // Get userId from route parameter
+
+    const query = { brokerId: id};
+
+    if (industry.length > 0) {
+        query.industry = { $in: industry }; // Match any of the industries selected
+    }
+    if (location.length > 0) {
+        query.location = { $in: location }; // Match any of the locations selected
+    }
+
+    console.log('Query', query);
+
+    // Assuming req.user is populated with the logged-in broker's info
+    const profiles = await Profile.find({
+        user: { $in: await User.find(query).select('_id') }
+    });
+
+    res.status(200).json(profiles);
+        
+    } catch (error) {
+        console.error('Error fetching client profiles:', error);
+        res.status(500).json({ message: 'Error fetching client profiles' });
+    }
+});
+
+router.get('/', authMiddleware, async (req, res) => {
+    try {
+        const id = req.userId;
 
         // Validate the userId format if necessary
         if (!id.match(/^[0-9a-fA-F]{24}$/)) {
@@ -68,9 +102,9 @@ router.get('/:id', async (req, res) => {
 });
 
 // PUT endpoint to update profile data based on userId
-router.put('/:id', async (req, res) => {
+router.put('/', authMiddleware, async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = req.userId;
 
         // Extract the new profile data from the request body
         const updatedData = req.body;
@@ -98,5 +132,20 @@ router.put('/:id', async (req, res) => {
     }
 });
 
+// Route to check if a user has a profile
+router.get('/check', authMiddleware, async (req, res) => {
+    try {
+        const id = req.userId;
+        
+        const profile = await Profile.findOne({ user: id }); // Check for profile based on userId
+        if (profile) {
+            return res.status(200).json({ hasProfile: true });
+        }
+        return res.status(200).json({ hasProfile: false });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error checking profile' });
+    }
+});
 
 module.exports = router;
