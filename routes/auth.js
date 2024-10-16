@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs'); // hashing passwords
 const jwt = require('jsonwebtoken'); // for user authentication and generating tokens
 const { check, validationResult } = require('express-validator');
 const User = require('../models/User'); // importing user from MongoDB
+const Buyer = require('../models/Buyer'); // importing user from MongoDB
+const Seller = require('../models/Seller'); // importing user from MongoDB
 
 const router = express.Router();
 
@@ -19,7 +21,9 @@ router.post(
   ],
   async (req, res) => {
     const errors = validationResult(req);
+
     if (!errors.isEmpty()) {
+      console.log("Validation errors:", errors.array());  // Log the validation errors for debugging
       return res.status(400).json({ errors: errors.array() });
     }
 
@@ -41,6 +45,7 @@ router.post(
         brokerId = broker._id; // Use this brokerId to set on the new buyer/seller
 
         user = new User({ name, email, password, role, brokerId });
+
       }
       else
       {
@@ -53,9 +58,21 @@ router.post(
 
       await user.save();
 
+
       // Create and return a JWT token
 
       const token = jwt.sign({ id: user._id }, 'your-secret-key', { expiresIn: '1h' });
+
+      if (role === 'buyer')
+        {
+          buyer = new Buyer ({user: user._id});
+          await buyer.save();
+        }
+      if (role === 'seller')
+      {
+        seller = new Seller ({user: user._id});
+        await seller.save();
+      }
 
       res.status(201).json({ token, id: user._id });
 
@@ -86,7 +103,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign({ id: user._id }, 'your-secret-key', { expiresIn: '1h' });
     
     // Send token and user ID as response
-    res.status(201).json({ token, id: user._id});
+    res.status(201).json({ token, id: user._id, role: user.role});
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');
